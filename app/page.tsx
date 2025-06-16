@@ -2,6 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 
+import { db } from '../firebase';
+import { collection, getDocs } from 'firebase/firestore';
+
+
 // --- Type Definitions for a more robust application with TypeScript ---
 
 // Define the structure of an Employee object
@@ -185,6 +189,34 @@ const App: React.FC = () => {
   const dayNames: string[] = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'ไม่มี' ];
   // State for clinic-wide day off
   const [clinicDayOff, setClinicDayOff] = useState<string>('อาทิตย์'); // Default Sunday
+
+  useEffect(() => {
+    const loadScheduleFromFirestore = async () => {
+      const querySnapshot = await getDocs(collection(db, 'schedules'));
+      const schedules = querySnapshot.docs.map(doc => doc.data());
+
+      if (schedules.length > 0) {
+        const latest = schedules[0]; // ใช้เอกสารล่าสุดหรือเอกสารแรก
+        setEmployees(Array.isArray(latest.employees) ? latest.employees : []);
+        const scheduleMap = {} as MonthlySchedule;
+
+        if (latest.schedule) {
+          Object.entries(latest.schedule).forEach(([empId, days]: any) => {
+            Object.entries(days).forEach(([day, shift]) => {
+              const date = latest.date;
+              if (!scheduleMap[date]) scheduleMap[date] = {};
+              scheduleMap[date][empId] = shift as ShiftEntry;
+            });
+          });
+        }
+
+        setMonthlySchedule(scheduleMap);
+      }
+    };
+
+    loadScheduleFromFirestore();
+  }, []);
+
 
   // Get days in current month
   const getDaysInMonth = (year: number, month: number): number => {
